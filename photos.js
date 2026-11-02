@@ -1,7 +1,8 @@
-/* Прихована вкладка «Фото»: лише перегляд. Відкривається п'ятьма швидкими натисканнями на назву «Облік сублімації». */
+/* Прихована вкладка «Фото»: лише перегляд. Відкривається довгим утриманням (~1,5 с) на назві «Облік сублімації». */
 (function(){
-var UK='inv-photo-url',CK='inv-photo-cache';
-var ov=null,busy=false,err='',taps=0,tt=0,D=null;
+var UK='inv-photo-url',CK='inv-photo-cache',DEF='https://script.google.com/macros/s/AKfycbwwk0u8yVjx79HIghVLT-xx7uyCTa6o1I23EvP1X-7jMZNw8nourVqejOH0le_CRY4n/exec';
+function url(){return ls(UK)||DEF}
+var ov=null,busy=false,err='',lp=null,shownAt=0,sx=0,sy=0,D=null;
 function ls(k){try{return localStorage.getItem(k)||''}catch(e){return ''}}
 function ss(k,v){try{localStorage.setItem(k,v)}catch(e){}}
 try{D=JSON.parse(ls(CK)||'null')}catch(e){D=null}
@@ -22,17 +23,14 @@ st.textContent='.pov{position:fixed;inset:0;background:rgba(0,0,0,.45);display:f
 '.psh h3{margin:0 0 8px}.pg{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0}'+
 '.pg div{background:var(--bg);border:1px solid var(--ln);border-radius:14px;padding:10px}.pg b{display:block;font-size:24px}'+
 '.pl{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--ln);font-size:15px}'+
-'.prow{display:flex;gap:8px;margin-top:12px}.prow .btn{flex:1}';
+'.prow{display:flex;gap:8px;margin-top:12px}.prow .btn{flex:1}'+
+'.top b{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:manipulation}';
 document.head.appendChild(st);
 
 function draw(){
 if(!ov)return;
-var u=ls(UK),h='<div class="psh"><h3>Друк фото</h3>';
-if(!u){
-h+='<div class="mut">Вставте адресу скрипта лічильника фото (закінчується на /exec). Вона зберігається лише на цьому пристрої.</div>'+
-'<div style="margin-top:10px"><input id="pu" placeholder="https://script.google.com/…/exec"></div>'+
-'<div class="prow"><button class="btn" data-p="save">Зберегти</button><button class="btn s" data-p="x">Закрити</button></div>';
-}else if(!D||!D.days){
+var h='<div class="psh"><h3>Друк фото</h3>';
+if(!D||!D.days){
 h+='<div class="mut">'+(busy?'Завантаження…':esc(err||'Немає даних'))+'</div>'+
 '<div class="prow"><button class="btn" data-p="r">Оновити</button><button class="btn s" data-p="x">Закрити</button></div>';
 }else{
@@ -53,7 +51,7 @@ ov.innerHTML=h+'</div>';
 }
 
 function load(){
-var u=ls(UK);if(!u||busy)return;
+var u=url();if(!u||busy)return;
 busy=true;err='';draw();
 fetch(u+(u.indexOf('?')>-1?'&':'?')+'action=data',{cache:'no-store'})
 .then(function(r){return r.json()})
@@ -65,27 +63,27 @@ busy=false;draw();
 
 function show(){
 if(ov)return;
-ov=document.createElement('div');ov.className='pov';document.body.appendChild(ov);
+shownAt=Date.now();ov=document.createElement('div');ov.className='pov';document.body.appendChild(ov);
 draw();load();
 }
 function hide(){if(ov){ov.parentNode.removeChild(ov);ov=null}}
 
+function cancelLp(){if(lp){clearTimeout(lp);lp=null}}
+document.addEventListener('touchstart',function(e){
+var t=e.target;if(ov||!t||!t.closest||!t.closest('.top b'))return;
+cancelLp();var c=e.touches&&e.touches[0];sx=c?c.clientX:0;sy=c?c.clientY:0;lp=setTimeout(function(){lp=null;show()},1500);
+},{passive:true});
+document.addEventListener('touchmove',function(e){var c=e.touches&&e.touches[0];if(lp&&c&&(Math.abs(c.clientX-sx)>12||Math.abs(c.clientY-sy)>12))cancelLp()},{passive:true});
+['touchend','touchcancel'].forEach(function(n){document.addEventListener(n,cancelLp,{passive:true})});
+document.addEventListener('contextmenu',function(e){if(e.target&&e.target.closest&&e.target.closest('.top b'))e.preventDefault()});
 document.addEventListener('click',function(e){
 var t=e.target;if(!t||!t.closest)return;
+if(ov&&Date.now()-shownAt<700)return;
 if(ov&&t===ov){hide();return}
-if(!ov&&t.closest('.top b')){
-var now=Date.now();taps=(now-tt<1500)?taps+1:1;tt=now;
-if(taps>=5){taps=0;show()}
-return;
-}
 var b=t.closest('[data-p]');if(!b||!ov)return;
 var a=b.getAttribute('data-p');
 if(a=='x')hide();
 else if(a=='r')load();
-else if(a=='save'){
-var v=(document.getElementById('pu').value||'').trim();
-if(/^https:\/\//.test(v)){ss(UK,v);ss(CK,'');D=null;load()}
-}
-else if(a=='chg'){ss(UK,'');ss(CK,'');D=null;draw()}
+else if(a=='chg'){var v=prompt('Адреса скрипта (закінчується на /exec)',url());v=(v||'').trim();if(/^https:\/\//.test(v)){ss(UK,v);ss(CK,'');D=null;load()}}
 });
 })();
